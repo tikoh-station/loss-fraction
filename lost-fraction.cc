@@ -1,3 +1,24 @@
+// Compute the lost-fraction of particles in stellarators
+// App based on ::gyronimo:: object-oriented library on GitHub
+// https://github.com/prodrigs/gyronimo.git
+// Copyright (C) 2023 Manuel Assunção.
+
+// ::lost-fraction:: is free software: you can redistribute it 
+// and/or modify it under the terms of the GNU General Public 
+// License as published by the Free Software Foundation, either 
+// version 3 of the License, or (at your option) any later version.
+
+// ::lost-fraction:: is distributed in the hope that it will be 
+// useful, but WITHOUT ANY WARRANTY; without even the implied 
+// warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. 
+// See the GNU General Public License for more details.
+
+// You should have received a copy of the GNU General Public License
+// along with ::lost-fraction::.  
+// If not, see <https://www.gnu.org/licenses/>.
+
+// @lost-fraction.cc, this file is part of ::lost-fraction::
+
 #include <iostream>
 #include <fstream>
 #include <cmath>
@@ -29,7 +50,7 @@ void print_help() {
 		<< gyronimo::version_major << "." << gyronimo::version_minor << ".\n";
 	std::cout << "usage: lost-fraction.exe [options] vmec_netcdf_file\n";
 	std::cout <<
-		"reads a vmec output file, prints the required orbit to stdout.\n";
+		"reads a vmec output file, prints the required info for all orbits to stdout.\n";
 	std::cout << "options:\n";
 	std::cout << "  -stepper=val   Name of the stepper algorithm:\n";
 	std::cout << "      + guiding_centre (default)\n";
@@ -210,6 +231,8 @@ private:
 	doubles& vpitch_;
 };
 
+// new GSL error handler to announce when interpolator domain is violated
+// and not shut down the program
 void new_handler(const char *reason, const char *file, int line, int gsl_errno) {
 	if(gsl_errno == GSL_EDOM) {
 		throw std::domain_error("Outside domain of interpolation.");
@@ -224,13 +247,6 @@ void new_handler(const char *reason, const char *file, int line, int gsl_errno) 
 
 int main(int argc, char *argv[]) {
 
-	auto command_line = argh::parser(argv);
-	if (command_line[{"h", "help"}]) print_help();
-	if (!command_line(1)) {  // the 1st non-option argument is the mapping file.
-		std::cerr << "lost-fraction: no vmec mapping file provided; -h for help.\n";
-		std::exit(0);
-	}
-
 	int rank, size;
 	/* Initialize MPI */
 	MPI_Init(&argc, &argv);
@@ -239,10 +255,21 @@ int main(int argc, char *argv[]) {
 	/* Get my rank */
 	MPI_Comm_rank( MPI_COMM_WORLD, &rank );
 
+    /* Read info from command line */
+	auto command_line = argh::parser(argv);
+	if (command_line[{"h", "help"}] && rank == 0) print_help();
+	if (!command_line(1)) {  // the 1st non-option argument is the mapping file.
+		std::cerr << "lost-fraction: no vmec mapping file provided; -h for help.\n";
+		std::exit(0);
+	}
+
+    /* Replace error handlers in gsl to detect when particles 
+    escape interpolator range, a.k.a. escape the last magnetic 
+    surface of the stellarator (last resort when other tests fail) */
 	gsl_set_error_handler_off();
 	gsl_set_error_handler(&new_handler);
 
-	/* Initialize helena equilibrium */
+	/* Initialize vmec equilibrium */
 	gyronimo::parser_vmec vmap(command_line[1]);
 	gyronimo::cubic_gsl_factory ifactory;
 	gyronimo::morphism_vmec m(&vmap, &ifactory);
@@ -250,13 +277,14 @@ int main(int argc, char *argv[]) {
 	gyronimo::equilibrium_vmec veq(&g, &ifactory);
     double infp = 1.0 / vmap.nfp();
 
+    /* Test to determine if particle reaches last flux surface */
 	std::function<bool(gyronimo::IR3)> escape_condition = 
 		[](gyronimo::IR3 pos) {
 			if(pos[gyronimo::IR3::u] > 0.99) return true;
 			else return false;
 		};
 
-	/* Reads parameters from the command line: */
+	/* Extract info parameters from the command line: */
 	size_t ngyrons_total;  command_line("ngyrons",  1) >> ngyrons_total;
 	size_t ngyrons = std::ceil(ngyrons_total/((double)size));
 
@@ -271,18 +299,21 @@ int main(int argc, char *argv[]) {
 	std::uniform_real_distribution uniform_angle(0.0, 2*std::numbers::pi);
 
 	std::string steppername; command_line("stepper", "guiding_centre") >> steppername;
-	double Lref;   command_line("lref",   1.0) >> Lref;   // SI units.
-	double Vref;   command_line("vref",   1.0) >> Vref;   // SI units.
-	double mass;   command_line("mass",   1.0) >> mass;   // m_proton units.
-	double charge; command_line("charge", 1.0) >> charge; // q_electron units.
+	double Lref; command_line("lref",   1.0) >> Lref; // SI units.
+	double mass; command_line("mass",   1.0) >> mass; // m_proton units.
+	double Vref; command_line("vref",   1.0) >> Vref; // SI units.
+	double charge; command_line("charge", 1.0)   >> charge; // q_electron units.
 	double energy; command_line("energy", 3.5e6) >> energy; // energy in eV.
 
+    /* Vectors that will store orbit info */
 	doubles vflux(ngyrons);
 	doubles vzeta(ngyrons);
 	doubles vtheta(ngyrons);
 	doubles vpitch(ngyrons);
 	doubles vgyrophase(ngyrons);
 
+    // if 'flux' is provided, all particles are launched from the same flux
+    // otherwise, they are launched at random radial positions
 	double flux; std::string flux_str; command_line("flux", "random") >> flux_str;
 	if(flux_str != "random") {
 		command_line("flux", -1.0) >> flux; // normalized units.
@@ -297,18 +328,25 @@ int main(int argc, char *argv[]) {
 		for(size_t i = 0; i < ngyrons; ++i) vflux[i] = uniform_01(rng);
 	}
 
+    // if 'zeta' is provided, all particles are launched from the same toroidal angle
+    // otherwise, they are launched at random toroidal angles
 	double zeta; std::string zeta_str; command_line("zeta", "random") >> zeta_str;
 	if(zeta_str != "random") {
 		command_line("zeta", 0.0) >> zeta; // angle units.
 		for(size_t i = 0; i < ngyrons; ++i) vzeta[i] = zeta;
 	} else for(size_t i = 0; i < ngyrons; ++i) vzeta[i] = uniform_angle(rng) * infp;
 
+    // if 'theta' is provided, all particles are launched from the same poloidal angle
+    // otherwise, they are launched at random poloidal angles
 	double theta; std::string theta_str; command_line("theta", "random") >> theta_str;
 	if(theta_str != "random") {
 		command_line("theta", 0.0) >> theta; // angle units.
 		for(size_t i = 0; i < ngyrons; ++i) vtheta[i] = theta;
 	} else for(size_t i = 0; i < ngyrons; ++i) vtheta[i] = uniform_angle(rng);
 
+    // if 'pitch' is provided, all particles are launched with the same pitch
+    // if 'lambda' is provided, all particles are launched with the same lambda
+    // otherwise, they are launched with random pitch
 	double pitch; std::string pitch_str; command_line("pitch", "random") >> pitch_str;
 	double lambda; std::string lambda_str; command_line("lambda", "random") >> lambda_str;
 	if(pitch_str != "random") {
@@ -321,9 +359,13 @@ int main(int argc, char *argv[]) {
 			std::abs(lambda)*veq.magnitude({vflux[i], vzeta[i], vtheta[i]}, 0.0));
 	} else {
 		for(size_t i = 0; i < ngyrons; ++i) // vpitch[i] = std::cos(0.5 * uniform_angle(rng));
-            vpitch[i] = 2.0 * uniform_01(rng)-1.0;
+            vpitch[i] = 2.0*uniform_01(rng)-1.0;
 	}
 
+    // if 'gyrophase' is provided, all particles are launched with the same gyrophase
+    // otherwise, they are launched with random gyrophases
+    // the arbitrary gyrophase is well defined in this simulation
+    // only applicable for full-orbit integrations
 	double gyrophase; std::string phase_str; command_line("gyrophase", "random") >> phase_str;
 	if(phase_str != "random") {
 		command_line("gyrophase", 0.0) >> gyrophase; // angle units.

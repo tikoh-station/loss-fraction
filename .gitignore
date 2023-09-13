@@ -1,0 +1,14 @@
+# self evident, these ones...
+*.exe
+
+# self evident, these ones...
+*.[doax]
+
+# vim temporary files:
+*.swp
+
+# Visual Studio Code temporary files:
+.vscode
+
+# Useless macos stuff:
+.DS_Store
