@@ -1,5 +1,7 @@
 # self evident, these ones...
+*.o
 *.exe
+*.dat
 
 # self evident, these ones...
 *.[doax]

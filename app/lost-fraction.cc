@@ -33,6 +33,9 @@
 #include <gyronimo/core/contraction.hh>
 #include <gyronimo/fields/equilibrium_vmec.hh>
 #include <gyronimo/interpolators/cubic_gsl.hh>
+#include <gyronimo/metrics/morphism_cache.hh>
+#include <gyronimo/metrics/metric_cache.hh>
+#include <gyronimo/fields/IR3field_c1_cache.hh>
 
 #include <gyronimo/dynamics/guiding_centre.hh>
 #include <gyronimo/dynamics/odeint_adapter.hh>
@@ -43,7 +46,7 @@
 
 #include <gsl/gsl_errno.h>
 
-#include "argh.h"
+#include <argh.h>
 
 void print_help() {
 	std::cout << "lost-fraction, powered by ::gyronimo::v"
@@ -70,7 +73,6 @@ void print_help() {
 	std::cout << "  -nsamples=val  Number of time samples (default 512).\n";
 	std::cout << "  -ngyrons=val   Number of particles (default 1).\n";
 	std::cout << "  -seed=val      Random generator seed (default 0 sets CPU time).\n";
-	std::exit(0);
 }
 
 using doubles = std::vector<double>;
@@ -118,8 +120,8 @@ public:
 	particle_gc(double Lref, double Vref, double qom, gyronimo::IR3field_c1 *Bfield, 
 			gyronimo::IR3 Xgc, double mu_tilde, 
 			double energy_tilde, gyronimo::guiding_centre::vpp_sign sign) 
-			: gc_(Lref, Vref, qom, mu_tilde, Bfield), sys_(&gc_) {
-		s_ = gc_.generate_state(Xgc, energy_tilde, sign);
+			: gc_(Lref, Vref, qom, mu_tilde, Bfield, nullptr), sys_(&gc_) {
+		s_ = gc_.generate_state(Xgc, energy_tilde, sign, 0);
 	};
 	virtual ~particle_gc() override {};
 
@@ -185,7 +187,7 @@ public:
 
 		double vpar_tilde = vel_tilde_ * vpitch_[particle_index];
 		double vperp_tilde = vel_tilde_ * std::sqrt(1-vpitch_[particle_index]*vpitch_[particle_index]);
-		double sign = std::copysign(1.0, stepper_->qom());
+		double sign = std::copysign(1.0, stepper_->qom_tilde());
 
 		gyronimo::IR3 v0 = vpar_tilde*Bversor + (sign*vperp_tilde)*vperp_versor;
 
@@ -257,9 +259,14 @@ int main(int argc, char *argv[]) {
 
     /* Read info from command line */
 	auto command_line = argh::parser(argv);
-	if (command_line[{"h", "help"}] && rank == 0) print_help();
+	if (command_line[{"h", "help"}]) {
+        if(rank == 0) print_help();
+        MPI_Finalize();
+        std::exit(0);
+    }
 	if (!command_line(1)) {  // the 1st non-option argument is the mapping file.
-		std::cerr << "lost-fraction: no vmec mapping file provided; -h for help.\n";
+        if(rank == 0) std::cerr << "lost-fraction: no vmec mapping file provided; -h for help.\n";
+        MPI_Finalize();
 		std::exit(0);
 	}
 
@@ -272,9 +279,11 @@ int main(int argc, char *argv[]) {
 	/* Initialize vmec equilibrium */
 	gyronimo::parser_vmec vmap(command_line[1]);
 	gyronimo::cubic_gsl_factory ifactory;
-	gyronimo::morphism_vmec m(&vmap, &ifactory);
-	gyronimo::metric_vmec g(&m, &ifactory);
-	gyronimo::equilibrium_vmec veq(&g, &ifactory);
+	// gyronimo::morphism_vmec m(&vmap, &ifactory);
+	// gyronimo::metric_vmec g(&m);
+	gyronimo::morphism_cache<gyronimo::morphism_vmec> m(&vmap, &ifactory);
+	gyronimo::metric_cache<gyronimo::metric_vmec> g(&m);
+	gyronimo::IR3field_c1_cache<gyronimo::equilibrium_vmec> veq(&g, &ifactory);
     double infp = 1.0 / vmap.nfp();
 
     /* Test to determine if particle reaches last flux surface */

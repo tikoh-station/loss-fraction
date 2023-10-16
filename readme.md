@@ -29,9 +29,12 @@ standard (e.g., gcc-10.1.0 or later).
 
 #### Basic build procedure:
 
-1. Move to the build folder,
-2. Update makefile with paths to the required libraries,
-3. Run `make all` to compile the executable;
+0. Update `gyronimo_dir` and `gyronimo_build` path variables in the
+   `CMakeLists.txt` file to the paths in your system;
+1. Run `cmake [options] path/to/lost-fraction/repository` on an build 
+   folder (**outside** the repository) to configure the installation;
+2. Run `cmake --build . [options]` to generate the executable 
+   `lost-fraction`;
 
 External dependencies and other nightmares:
 -------------------------------------------
