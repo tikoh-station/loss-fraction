@@ -257,36 +257,37 @@ int main(int argc, char *argv[]) {
 	/* Get my rank */
 	MPI_Comm_rank( MPI_COMM_WORLD, &rank );
 
-    /* Read info from command line */
+  /* Read info from command line */
 	auto command_line = argh::parser(argv);
 	if (command_line[{"h", "help"}]) {
-        if(rank == 0) print_help();
-        MPI_Finalize();
-        std::exit(0);
-    }
+    if(rank == 0) print_help();
+    MPI_Finalize();
+    std::exit(0);
+  }
 	if (!command_line(1)) {  // the 1st non-option argument is the mapping file.
-        if(rank == 0) std::cerr << "lost-fraction: no vmec mapping file provided; -h for help.\n";
-        MPI_Finalize();
+    if(rank == 0) {
+      std::cerr << "lost-fraction: no vmec mapping file provided;";
+      std::cerr << " -h for help.\n";
+    }
+    MPI_Finalize();
 		std::exit(0);
 	}
 
-    /* Replace error handlers in gsl to detect when particles 
-    escape interpolator range, a.k.a. escape the last magnetic 
-    surface of the stellarator (last resort when other tests fail) */
+  /* Replace error handlers in gsl to detect when particles 
+  escape interpolator range, a.k.a. escape the last magnetic 
+  surface of the stellarator (last resort when other tests fail) */
 	gsl_set_error_handler_off();
 	gsl_set_error_handler(&new_handler);
 
 	/* Initialize vmec equilibrium */
 	gyronimo::parser_vmec vmap(command_line[1]);
 	gyronimo::cubic_gsl_factory ifactory;
-	// gyronimo::morphism_vmec m(&vmap, &ifactory);
-	// gyronimo::metric_vmec g(&m);
 	gyronimo::morphism_cache<gyronimo::morphism_vmec> m(&vmap, &ifactory);
 	gyronimo::metric_cache<gyronimo::metric_vmec> g(&m);
 	gyronimo::IR3field_c1_cache<gyronimo::equilibrium_vmec> veq(&g, &ifactory);
-    double infp = 1.0 / vmap.nfp();
+  double infp = 1.0 / vmap.nfp();
 
-    /* Test to determine if particle reaches last flux surface */
+  /* Test to determine if particle reaches last flux surface */
 	std::function<bool(gyronimo::IR3)> escape_condition = 
 		[](gyronimo::IR3 pos) {
 			if(pos[gyronimo::IR3::u] > 0.99) return true;
@@ -307,22 +308,23 @@ int main(int argc, char *argv[]) {
 	std::uniform_real_distribution uniform_01(0.0, 1.0);
 	std::uniform_real_distribution uniform_angle(0.0, 2*std::numbers::pi);
 
-	std::string steppername; command_line("stepper", "guiding_centre") >> steppername;
+	std::string steppername; 
+  command_line("stepper", "guiding_centre") >> steppername;
 	double Lref; command_line("lref",   1.0) >> Lref; // SI units.
 	double mass; command_line("mass",   1.0) >> mass; // m_proton units.
 	double Vref; command_line("vref",   1.0) >> Vref; // SI units.
 	double charge; command_line("charge", 1.0)   >> charge; // q_electron units.
 	double energy; command_line("energy", 3.5e6) >> energy; // energy in eV.
 
-    /* Vectors that will store orbit info */
+  /* Vectors that will store orbit info */
 	doubles vflux(ngyrons);
 	doubles vzeta(ngyrons);
 	doubles vtheta(ngyrons);
 	doubles vpitch(ngyrons);
 	doubles vgyrophase(ngyrons);
 
-    // if 'flux' is provided, all particles are launched from the same flux
-    // otherwise, they are launched at random radial positions
+  // if 'flux' is provided, all particles are launched from the same flux
+  // otherwise, they are launched at random radial positions
 	double flux; std::string flux_str; command_line("flux", "random") >> flux_str;
 	if(flux_str != "random") {
 		command_line("flux", -1.0) >> flux; // normalized units.
@@ -337,25 +339,27 @@ int main(int argc, char *argv[]) {
 		for(size_t i = 0; i < ngyrons; ++i) vflux[i] = uniform_01(rng);
 	}
 
-    // if 'zeta' is provided, all particles are launched from the same toroidal angle
-    // otherwise, they are launched at random toroidal angles
+  // if 'zeta' is set, all particles are launched from the same toroidal angle
+  // otherwise, they are launched at random toroidal angles
 	double zeta; std::string zeta_str; command_line("zeta", "random") >> zeta_str;
 	if(zeta_str != "random") {
 		command_line("zeta", 0.0) >> zeta; // angle units.
 		for(size_t i = 0; i < ngyrons; ++i) vzeta[i] = zeta;
-	} else for(size_t i = 0; i < ngyrons; ++i) vzeta[i] = uniform_angle(rng) * infp;
+	} else for(size_t i = 0; i < ngyrons; ++i) 
+      vzeta[i] = uniform_angle(rng) * infp;
 
-    // if 'theta' is provided, all particles are launched from the same poloidal angle
-    // otherwise, they are launched at random poloidal angles
-	double theta; std::string theta_str; command_line("theta", "random") >> theta_str;
+  // if 'theta' is set, all particles are launched from the same poloidal angle
+  // otherwise, they are launched at random poloidal angles
+	double theta; std::string theta_str; 
+  command_line("theta", "random") >> theta_str;
 	if(theta_str != "random") {
 		command_line("theta", 0.0) >> theta; // angle units.
 		for(size_t i = 0; i < ngyrons; ++i) vtheta[i] = theta;
 	} else for(size_t i = 0; i < ngyrons; ++i) vtheta[i] = uniform_angle(rng);
 
-    // if 'pitch' is provided, all particles are launched with the same pitch
-    // if 'lambda' is provided, all particles are launched with the same lambda
-    // otherwise, they are launched with random pitch
+  // if 'pitch' is provided, all particles are launched with the same pitch
+  // if 'lambda' is provided, all particles are launched with the same lambda
+  // otherwise, they are launched with random pitch
 	double pitch; std::string pitch_str; command_line("pitch", "random") >> pitch_str;
 	double lambda; std::string lambda_str; command_line("lambda", "random") >> lambda_str;
 	if(pitch_str != "random") {
@@ -367,15 +371,16 @@ int main(int argc, char *argv[]) {
 		for(size_t i = 0; i < ngyrons; ++i) vpitch[i] = vpp_sign*std::sqrt(1 - 
 			std::abs(lambda)*veq.magnitude({vflux[i], vzeta[i], vtheta[i]}, 0.0));
 	} else {
-		for(size_t i = 0; i < ngyrons; ++i) // vpitch[i] = std::cos(0.5 * uniform_angle(rng));
-            vpitch[i] = 2.0*uniform_01(rng)-1.0;
+		for(size_t i = 0; i < ngyrons; ++i)
+      vpitch[i] = 2.0*uniform_01(rng)-1.0;
 	}
 
-    // if 'gyrophase' is provided, all particles are launched with the same gyrophase
-    // otherwise, they are launched with random gyrophases
-    // the arbitrary gyrophase is well defined in this simulation
-    // only applicable for full-orbit integrations
-	double gyrophase; std::string phase_str; command_line("gyrophase", "random") >> phase_str;
+  // if 'gyrophase' is set, all particles are launched with the same gyrophase
+  // otherwise, they are launched with random gyrophases
+  // the arbitrary gyrophase is well defined in this simulation
+  // only applicable for full-orbit integrations
+	double gyrophase; std::string phase_str; 
+  command_line("gyrophase", "random") >> phase_str;
 	if(phase_str != "random") {
 		command_line("gyrophase", 0.0) >> gyrophase; // angle units.
 		for(size_t i = 0; i < ngyrons; ++i) vgyrophase[i] = gyrophase;
@@ -414,7 +419,7 @@ int main(int argc, char *argv[]) {
 	} else {
 		std::cerr << "lost-fraction: stepper name not recognized; -h for help.\n";
 		MPI_Finalize();
-		std::exit(1);
+		std::exit(0);
 	}
 
 	/* Write results to output */
@@ -423,7 +428,7 @@ int main(int argc, char *argv[]) {
 	std::ofstream file(filename);
 	if(!file.is_open()) {
 		std::cerr << "Could not open file '" << filename << "'" << std::endl;
-		// MPI_Finalize();
+		MPI_Finalize();
 		return 0;
 	}
 
@@ -438,43 +443,43 @@ int main(int argc, char *argv[]) {
 	file << " t_ref = " << Tref << " [s];";
 	file << " u_ref = " << Uref << " [eV];\n";
 	file << "# vars: t_escape s_i zeta_i theta_i energy_i pitch_i Bmag_i jac_i s_f zeta_f theta_f energy_f pitch_f Bmag_f \n";
-    file.precision(16);
-    file.setf(std::ios::scientific);
+  file.precision(16);
+  file.setf(std::ios::scientific);
 
 	/* LAUNCH PARTICLES */
-    for(size_t i = 0; i < ngyrons; ++i) {
-        std::unique_ptr<particle> p = nullptr;
-        p.reset(pfactory->generate_particle(i));
-        gyronimo::IR3 xcurrent = p->position();
-        double escape_time = -1.0;
-        double time = 0;
-        for(size_t j = 0; j <= nsamples; ++j) {
-            time = j * dt;
-            xcurrent = p->position();
-            if(escape_condition(xcurrent)) {
-                escape_time = time;
-                break;
-            }
-            try { p->do_step(time, dt); }
-            catch(std::domain_error &e) {
-                escape_time = time;
-                break; 
-            }
-        }
-
-        // print to file
-        double Bmag_i = veq.magnitude({vflux[i], vzeta[i], vtheta[i]}, 0.0);
-        double Bmag_f = veq.magnitude(xcurrent, time);
-        file << escape_time << ' '
-            << vflux[i] << ' ' << vzeta[i] << ' ' << vtheta[i] << ' '
-            << energy_tilde << ' ' << vpitch[i] << ' ' << Bmag_i << ' '
-            << m.jacobian({vflux[i], vzeta[i], vtheta[i]}) << ' '
-            << xcurrent[gyronimo::IR3::u] << ' '
-            << xcurrent[gyronimo::IR3::v] << ' '
-            << xcurrent[gyronimo::IR3::w] << ' '
-            << p->energy_kinetic(time) << ' '
-            << p->pitch(time) << ' ' << Bmag_f << '\n';
+  for(size_t i = 0; i < ngyrons; ++i) {
+    std::unique_ptr<particle> p = nullptr;
+    p.reset(pfactory->generate_particle(i));
+    gyronimo::IR3 xcurrent = p->position();
+    double escape_time = -1.0;
+    double time = 0;
+    for(size_t j = 0; j <= nsamples; ++j) {
+      time = j * dt;
+      xcurrent = p->position();
+      if(escape_condition(xcurrent)) {
+        escape_time = time;
+        break;
+      }
+      try { p->do_step(time, dt); }
+      catch(std::domain_error &e) {
+        escape_time = time;
+        break; 
+      }
     }
+
+    // print to file
+    double Bmag_i = veq.magnitude({vflux[i], vzeta[i], vtheta[i]}, 0.0);
+    double Bmag_f = veq.magnitude(xcurrent, time);
+    file << escape_time << ' '
+      << vflux[i] << ' ' << vzeta[i] << ' ' << vtheta[i] << ' '
+      << energy_tilde << ' ' << vpitch[i] << ' ' << Bmag_i << ' '
+      << m.jacobian({vflux[i], vzeta[i], vtheta[i]}) << ' '
+      << xcurrent[gyronimo::IR3::u] << ' '
+      << xcurrent[gyronimo::IR3::v] << ' '
+      << xcurrent[gyronimo::IR3::w] << ' '
+      << p->energy_kinetic(time) << ' '
+      << p->pitch(time) << ' ' << Bmag_f << '\n';
+  }
 
 	file.close();
 	
