@@ -1,23 +1,23 @@
-// Compute the lost-fraction of particles in stellarators
+// Compute the loss-fraction of particles in stellarators
 // App based on ::gyronimo:: object-oriented library on GitHub
 // https://github.com/prodrigs/gyronimo.git
 // Copyright (C) 2023 Manuel Assunção.
 
-// ::lost-fraction:: is free software: you can redistribute it 
+// ::loss-fraction:: is free software: you can redistribute it 
 // and/or modify it under the terms of the GNU General Public 
 // License as published by the Free Software Foundation, either 
 // version 3 of the License, or (at your option) any later version.
 
-// ::lost-fraction:: is distributed in the hope that it will be 
+// ::loss-fraction:: is distributed in the hope that it will be 
 // useful, but WITHOUT ANY WARRANTY; without even the implied 
 // warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. 
 // See the GNU General Public License for more details.
 
 // You should have received a copy of the GNU General Public License
-// along with ::lost-fraction::.  
+// along with ::loss-fraction::.  
 // If not, see <https://www.gnu.org/licenses/>.
 
-// @lost-fraction.cc, this file is part of ::lost-fraction::
+// @loss-fraction.cc, this file is part of ::loss-fraction::
 
 #include <iostream>
 #include <fstream>
@@ -49,9 +49,9 @@
 #include <argh.h>
 
 void print_help() {
-  std::cout << "lost-fraction, powered by ::gyronimo::v"
+  std::cout << "loss-fraction, powered by ::gyronimo::v"
     << gyronimo::version_major << "." << gyronimo::version_minor << ".\n";
-  std::cout << "usage: lost-fraction.exe [options] vmec_netcdf_file\n";
+  std::cout << "usage: loss-fraction.exe [options] vmec_netcdf_file\n";
   std::cout <<
     "reads a vmec output file, prints the required info for all orbits to stdout.\n";
   std::cout << "options:\n";
@@ -266,7 +266,7 @@ int main(int argc, char *argv[]) {
   }
   if (!command_line(1)) {  // the 1st non-option argument is the mapping file.
     if(rank == 0) {
-      std::cerr << "lost-fraction: no vmec mapping file provided;";
+      std::cerr << "loss-fraction: no vmec mapping file provided;";
       std::cerr << " -h for help.\n";
     }
     MPI_Finalize();
@@ -417,7 +417,7 @@ int main(int argc, char *argv[]) {
       &m, vflux, vzeta, vtheta, energy_tilde, vpitch, vgyrophase));
 
   } else {
-    std::cerr << "lost-fraction: stepper name not recognized; -h for help.\n";
+    std::cerr << "loss-fraction: stepper name not recognized; -h for help.\n";
     MPI_Finalize();
     std::exit(0);
   }
@@ -433,7 +433,7 @@ int main(int argc, char *argv[]) {
   }
 
   /* Print output header */
-  file << "# lost-fraction, powered by ::gyronimo:: v"
+  file << "# loss-fraction, powered by ::gyronimo:: v"
     << gyronimo::version_major << "." << gyronimo::version_minor << ".\n";
   file << "# args: ";
   for(int i = 1; i < argc; i++) file << argv[i] << " ";

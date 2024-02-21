@@ -1,19 +1,19 @@
-# ::lost-fraction::
+# ::loss-fraction::
 ============
 
-*- Compute the lost-fraction of particles in stellarators -*
+*- Compute the loss-fraction of particles in stellarators -*
 
 *App based on ::gyronimo:: object-oriented library on GitHub*
 
 Licensing and terms of use:
 ---------------------------
 
-`lost-fraction` is free software: you can redistribute it and/or modify it
+`loss-fraction` is free software: you can redistribute it and/or modify it
 under the terms of the GNU General Public License as published by the
 Free Software Foundation, either version 3 of the License, or (at your
 option) any later version.
 
-`lost-fraction` is distributed in the hope that it will be useful, but
+`loss-fraction` is distributed in the hope that it will be useful, but
 WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General
 Public License for more details.
@@ -31,10 +31,10 @@ standard (e.g., gcc-10.1.0 or later).
 
 0. Update `gyronimo_dir` and `gyronimo_build` path variables in the
    `CMakeLists.txt` file to the paths in your system;
-1. Run `cmake [options] path/to/lost-fraction/repository` on an build 
+1. Run `cmake [options] path/to/loss-fraction/repository` on an build 
    folder (**outside** the repository) to configure the installation;
 2. Run `cmake --build . [options]` to generate the executable 
-   `lost-fraction`;
+   `loss-fraction`;
 
 External dependencies and other nightmares:
 -------------------------------------------

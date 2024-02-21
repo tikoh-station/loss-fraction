@@ -5,7 +5,7 @@ cmake_minimum_required(VERSION 3.23.1)
 set(CMAKE_DISABLE_SOURCE_CHANGES ON)
 set(CMAKE_DISABLE_IN_SOURCE_BUILD ON)
 
-project(lostfraction)
+project(lossfraction)
 
 # compiler requirements
 set(CMAKE_CXX_STANDARD 20)
@@ -27,23 +27,23 @@ find_library(found gyronimo ${gyronimo_build})
   else()
     message(FATAL_ERROR "::gyronimo:: library not found, update gyronimo_dir path. See readme.md for installation details.")
   endif()
-set(lostfraction_includes ${lostfraction_includes} ${gyronimo_dir} ${gyronimo_dir}/misc/apps/include)
-set(lostfraction_depending_libs ${lostfraction_depending_libs} gyronimo)
+set(lossfraction_includes ${lossfraction_includes} ${gyronimo_dir} ${gyronimo_dir}/misc/apps/include)
+set(lossfraction_depending_libs ${lossfraction_depending_libs} gyronimo)
 link_directories(${gyronimo_build})
 
 # mpi requirement
 find_package(MPI REQUIRED)
-  set(lostfraction_includes ${lostfraction_includes} ${MPI_INCLUDE_PATH})
-  set(lostfraction_depending_libs ${lostfraction_depending_libs} ${MPI_C_LIBRARIES})
+  set(lossfraction_includes ${lossfraction_includes} ${MPI_INCLUDE_PATH})
+  set(lossfraction_depending_libs ${lossfraction_depending_libs} ${MPI_C_LIBRARIES})
 
 # gsl requirement
 find_package(GSL REQUIRED)
-  set(lostfraction_includes ${lostfraction_includes} ${GSL_INCLUDE_DIRS})
-  set(lostfraction_depending_libs ${lostfraction_depending_libs} ${GSL_LIBRARIES})
+  set(lossfraction_includes ${lossfraction_includes} ${GSL_INCLUDE_DIRS})
+  set(lossfraction_depending_libs ${lossfraction_depending_libs} ${GSL_LIBRARIES})
   
   # boost requirement
 find_package(Boost 1.73.0 REQUIRED)
-  set(lostfraction_includes ${lostfraction_includes} ${Boost_INCLUDE_DIRS})
+  set(lossfraction_includes ${lossfraction_includes} ${Boost_INCLUDE_DIRS})
 
 # netcdf requirement
 find_program(NCXX4_CONFIG "ncxx4-config")
@@ -56,9 +56,9 @@ find_program(NCXX4_CONFIG "ncxx4-config")
   endif()
   string(STRIP ${netcdf_cxx_libs} netcdf_cxx_libs)
   string(STRIP ${netcdf_cxx_flags} netcdf_cxx_flags)
-  set(lostfraction_includes ${lostfraction_includes} ${netcdf_cxx_flags})
-  set(lostfraction_depending_libs ${lostfraction_depending_libs} ${netcdf_cxx_libs})
+  set(lossfraction_includes ${lossfraction_includes} ${netcdf_cxx_flags})
+  set(lossfraction_depending_libs ${lossfraction_depending_libs} ${netcdf_cxx_libs})
 
-add_executable(lost-fraction ${CMAKE_SOURCE_DIR}/app/lost-fraction.cc)
-target_include_directories(lost-fraction PUBLIC ${lostfraction_includes})
-target_link_libraries(lost-fraction PRIVATE ${lostfraction_depending_libs} MPI::MPI_CXX)
+add_executable(loss-fraction ${CMAKE_SOURCE_DIR}/app/loss-fraction.cc)
+target_include_directories(loss-fraction PUBLIC ${lossfraction_includes})
+target_link_libraries(loss-fraction PRIVATE ${lossfraction_depending_libs} MPI::MPI_CXX)
