@@ -104,10 +104,15 @@ class particle_fo : public particle {
     virtual double energy_kinetic(double time) override {
     return stepper_->energy_kinetic(s_);
   };
-    virtual double pitch(double time) override {
+  virtual double pitch(double time) override {
+    gyronimo::IR3 q = stepper_->get_position(s_);
+    gyronimo::IR3 dq = stepper_->get_dot_q(s_);
+    gyronimo::IR3 b = stepper_->magnetic_field()->covariant_versor(q, time);
+    double vpp = gyronimo::inner_product(dq, b);
+    double vpp_sign = std::copysign(1.0, vpp);
     double Ekin = stepper_->energy_kinetic(s_);
-    double Eperp = stepper_->energy_perpendicular(s_, time);
-        return std::sqrt(1.0-Eperp/Ekin);
+    double Epar = stepper_->energy_parallel(s_, time);
+    return vpp_sign * std::sqrt(Epar/Ekin);
   };
 
  private:
@@ -136,10 +141,11 @@ class particle_gc : public particle {
   virtual double energy_kinetic(double time) override {
     return gc_.energy_parallel(s_) + gc_.energy_perpendicular(s_, time);
   };
-    virtual double pitch(double time) override {
-        double Epar = gc_.energy_parallel(s_);
-        double Eperp = gc_.energy_perpendicular(s_, time);
-        return std::sqrt(1.0-Eperp/(Epar+Eperp));
+  virtual double pitch(double time) override {
+    double vpp_sign = std::copysign(1.0, gc_.get_vpp(s_));
+    double Epar = gc_.energy_parallel(s_);
+    double Eper = gc_.energy_perpendicular(s_, time);
+    return vpp_sign * std::sqrt(Epar/(Epar+Eper));
   };
 
  private:
@@ -454,18 +460,18 @@ int main(int argc, char *argv[]) {
     gyronimo::IR3 xcurrent = p->position();
     double escape_time = -1.0;
     double time = 0;
-    for(size_t j = 0; j <= nsamples; ++j) {
+    for(size_t j = 0; j < nsamples; ++j) {
       time = j * dt;
-      xcurrent = p->position();
       if(escape_condition(xcurrent)) {
-        escape_time = time;
+        escape_time = time + dt;
         break;
       }
       try { p->do_step(time, dt); }
       catch(std::domain_error &e) {
-        escape_time = time;
+        escape_time = time + dt;
         break; 
       }
+      xcurrent = p->position();
     }
 
     // print to file
